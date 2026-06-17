@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plural System Dashboard</title>
+<style>
+body{
+  margin:0;
+  font-family: Arial, sans-serif;
+  background:#0b1220;
+  color:white;
+}
+header{
+  padding:16px;
+  font-size:20px;
+  font-weight:bold;
+  background:#111a2e;
+}
+.container{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap:16px;
+  padding:16px;
+}
+.card{
+  background:rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:16px;
+  padding:12px;
+  backdrop-filter: blur(10px);
+}
+input,button,textarea{
+  width:100%;
+  margin:6px 0;
+  padding:10px;
+  border-radius:10px;
+  border:none;
+}
+button{
+  background:#3b82f6;
+  color:white;
+  cursor:pointer;
+}
+button:hover{opacity:0.9}
+.row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.member{
+  padding:10px;
+  border-radius:12px;
+  background:rgba(255,255,255,0.05);
+  margin-bottom:10px;
+}
+img{
+  width:60px;height:60px;border-radius:50%;object-fit:cover;
+}
+.small{font-size:12px;opacity:0.8}
+</style>
+</head>
+<body>
+
+<header>Plural Dashboard</header>
+
+<div class="container">
+
+<div class="card">
+<h3>Add / Edit Member</h3>
+<input id="name" placeholder="Name">
+<input id="pronouns" placeholder="Pronouns">
+<input id="roles" placeholder="Roles">
+<input id="split" type="date">
+<input id="avatar" type="file" accept="image/*">
+<button onclick="saveMember()">Save Member</button>
+</div>
+
+<div class="card">
+<h3>Members</h3>
+<div id="members"></div>
+</div>
+
+<div class="card">
+<h3>Front Tracker</h3>
+<div id="front"></div>
+</div>
+
+<div class="card">
+<h3>Chat</h3>
+<textarea id="msg"></textarea>
+<button onclick="sendMsg()">Send</button>
+<div id="chat"></div>
+</div>
+
+</div>
+
+
+<script>
+let members = JSON.parse(localStorage.getItem("members")||"[]");
+let chats = JSON.parse(localStorage.getItem("chats")||"[]");
+let fronts = JSON.parse(localStorage.getItem("fronts")||"[]");
+let editing = null;
+
+function save(){
+  localStorage.setItem("members", JSON.stringify(members));
+  localStorage.setItem("chats", JSON.stringify(chats));
+  localStorage.setItem("fronts", JSON.stringify(fronts));
+}
+
+function getActiveFronts(){
+  return fronts.filter(f => !f.end).map(f => f.member);
+}
+
+function getFrontNames(){
+  return getActiveFronts()
+    .map(id => members.find(m=>m.id===id)?.name)
+    .filter(Boolean);
+}
+
+function saveMember(){
+  let file = document.getElementById("avatar").files[0];
+  if(file){
+    let r = new FileReader();
+    r.onload = function(){
+      upsertMember(r.result);
+    }
+    r.readAsDataURL(file);
+  } else {
+    upsertMember(null);
+  }
+}
+
+function upsertMember(img){
+  const nameEl = document.getElementById("name");
+  const pronounsEl = document.getElementById("pronouns");
+  const rolesEl = document.getElementById("roles");
+  const splitEl = document.getElementById("split");
+
+  let m = {
+    id: editing || Date.now().toString(),
+    name: nameEl.value,
+    pronouns: pronounsEl.value,
+    roles: rolesEl.value,
+    split: splitEl.value,
+    avatar: img
+  };
+
+  let idx = members.findIndex(x=>x.id===m.id);
+  if(idx>-1) members[idx]=m;
+  else members.push(m);
+
+  editing=null;
+  save();
+  render();
+}
+
+function renderMembers(){
+  let el = document.getElementById("members");
+  el.innerHTML="";
+  members.forEach(m=>{
+    el.innerHTML += `
+      <div class="member">
+        ${m.avatar?`<img src="${m.avatar}">`:``}
+        <b>${m.name}</b><br>
+        <span class="small">${m.pronouns} | ${m.roles}</span><br>
+        <button onclick="startFront('${m.id}')">Front</button>
+        <button onclick="editMember('${m.id}')">Edit</button>
+      </div>`;
+  });
+}
+
+function editMember(id){
+  let m = members.find(x=>x.id===id);
+  if(!m) return;
+
+  document.getElementById("name").value = m.name || "";
+  document.getElementById("pronouns").value = m.pronouns || "";
+  document.getElementById("roles").value = m.roles || "";
+  document.getElementById("split").value = m.split || "";
+
+  editing=id;
+}
+
+function startFront(id){
+  fronts.push({
+    id:Date.now().toString(),
+    member:id,
+    start:new Date().toLocaleString(),
+    end:null
+  });
+  save();
+  renderFront();
+}
+
+function stopFront(i){
+  fronts[i].end=new Date().toLocaleString();
+  save();
+  renderFront();
+}
+
+function renderFront(){
+  let el=document.getElementById("front");
+  el.innerHTML="";
+
+  let active = getActiveFronts();
+
+  fronts.slice().reverse().forEach((f,i)=>{
+    let m=members.find(x=>x.id===f.member);
+    el.innerHTML+=`
+      <div class="member">
+        <b>${m?m.name:"Unknown"}</b><br>
+        <span class="small">${f.start} - ${f.end||"active"}</span><br>
+        ${!f.end?`<button onclick="stopFront(${fronts.length-1-i})">Stop</button>`:""}
+      </div>`;
+  });
+
+  // show current front status
+  if(active.length){
+    el.innerHTML = `
+      <div class="member">
+        <b>Current Front:</b><br>
+        ${getFrontNames().join(", ")}
+      </div>
+    ` + el.innerHTML;
+  }
+}
+
+function sendMsg(){
+  const msgEl = document.getElementById("msg");
+  let text = msgEl.value;
+  if(!text) return;
+
+  let active = getActiveFronts();
+  let sender = "Unknown";
+
+  if(active.length === 1){
+    sender = members.find(m=>m.id===active[0])?.name || "Unknown";
+  } else if(active.length > 1){
+    sender = prompt("Multiple fronts detected. Enter sender name:", members.find(m=>m.id===active[0])?.name || "") || "Unknown";
+  }
+
+  chats.push({
+    sender,
+    text,
+    time:new Date().toLocaleTimeString()
+  });
+
+  msgEl.value="";
+  save();
+  renderChat();
+}
+
+function renderChat(){
+  let el=document.getElementById("chat");
+  el.innerHTML="";
+  chats.forEach(c=>{
+    el.innerHTML+=`<div class="small"><b>${c.sender}</b> [${c.time}]: ${c.text}</div>`;
+  });
+}
+
+function render(){
+  renderMembers();
+  renderFront();
+  renderChat();
+}
+
+render();
+</script>
+
+
+</body>
+</html>
