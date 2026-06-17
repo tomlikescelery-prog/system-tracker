@@ -1,0 +1,308 @@
+```jsx
+import React, { useState } from "react";
+
+export default function App() {
+  const [members, setMembers] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [frontLogs, setFrontLogs] = useState([]);
+
+  const [newMember, setNewMember] = useState({
+    name: "",
+    pronouns: "",
+    roles: "",
+    splitDate: "",
+    avatar: "",
+  });
+
+  const [message, setMessage] = useState("");
+
+  function handleImage(e) {
+    const file = e.target.files[0];
+
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      setNewMember({
+        ...newMember,
+        avatar: reader.result,
+      });
+    };
+
+    reader.readAsDataURL(file);
+  }
+
+  function addMember() {
+    if (!newMember.name) return;
+
+    setMembers([
+      ...members,
+      {
+        id: crypto.randomUUID(),
+        ...newMember,
+      },
+    ]);
+
+    setNewMember({
+      name: "",
+      pronouns: "",
+      roles: "",
+      splitDate: "",
+      avatar: "",
+    });
+  }
+
+  function startFront(member) {
+    setFrontLogs([
+      ...frontLogs,
+      {
+        id: crypto.randomUUID(),
+        memberId: member.id,
+        memberName: member.name,
+        startedAt: new Date().toLocaleString(),
+        endedAt: null,
+      },
+    ]);
+  }
+
+  function stopFront(logId) {
+    setFrontLogs(
+      frontLogs.map((log) =>
+        log.id === logId
+          ? {
+              ...log,
+              endedAt: new Date().toLocaleString(),
+            }
+          : log
+      )
+    );
+  }
+
+  function sendMessage() {
+    if (!message) return;
+
+    setMessages([
+      ...messages,
+      {
+        id: crypto.randomUUID(),
+        text: message,
+        createdAt: new Date().toLocaleTimeString(),
+      },
+    ]);
+
+    setMessage("");
+  }
+
+  return (
+    <div
+      style={{
+        background: "#0f172a",
+        minHeight: "100vh",
+        color: "white",
+        padding: "2rem",
+        fontFamily: "sans-serif",
+      }}
+    >
+      <h1>Plural System Dashboard</h1>
+
+      <div
+        style={{
+          background: "#1e293b",
+          padding: "1rem",
+          borderRadius: "16px",
+          marginBottom: "2rem",
+        }}
+      >
+        <h2>Add Member</h2>
+
+        <input
+          placeholder="Name"
+          value={newMember.name}
+          onChange={(e) =>
+            setNewMember({
+              ...newMember,
+              name: e.target.value,
+            })
+          }
+        />
+
+        <br />
+
+        <input
+          placeholder="Pronouns"
+          value={newMember.pronouns}
+          onChange={(e) =>
+            setNewMember({
+              ...newMember,
+              pronouns: e.target.value,
+            })
+          }
+        />
+
+        <br />
+
+        <input
+          placeholder="Roles"
+          value={newMember.roles}
+          onChange={(e) =>
+            setNewMember({
+              ...newMember,
+              roles: e.target.value,
+            })
+          }
+        />
+
+        <br />
+
+        <input
+          type="date"
+          value={newMember.splitDate}
+          onChange={(e) =>
+            setNewMember({
+              ...newMember,
+              splitDate: e.target.value,
+            })
+          }
+        />
+
+        <br />
+
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handleImage}
+        />
+
+        <br />
+        <br />
+
+        <button onClick={addMember}>
+          Add Member
+        </button>
+      </div>
+
+      <h2>Members</h2>
+
+      <div
+        style={{
+          display: "grid",
+          gap: "1rem",
+        }}
+      >
+        {members.map((member) => (
+          <div
+            key={member.id}
+            style={{
+              background: "#1e293b",
+              padding: "1rem",
+              borderRadius: "16px",
+            }}
+          >
+            {member.avatar && (
+              <img
+                src={member.avatar}
+                alt=""
+                style={{
+                  width: "80px",
+                  height: "80px",
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                }}
+              />
+            )}
+
+            <h3>{member.name}</h3>
+
+            <p>Pronouns: {member.pronouns}</p>
+
+            <p>Roles: {member.roles}</p>
+
+            <p>Split Date: {member.splitDate}</p>
+
+            <button
+              onClick={() =>
+                startFront(member)
+              }
+            >
+              Start Fronting
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <h2 style={{ marginTop: "2rem" }}>
+        Front Logs
+      </h2>
+
+      {frontLogs.map((log) => (
+        <div
+          key={log.id}
+          style={{
+            background: "#1e293b",
+            padding: "1rem",
+            marginBottom: "1rem",
+            borderRadius: "16px",
+          }}
+        >
+          <strong>{log.memberName}</strong>
+
+          <p>Started: {log.startedAt}</p>
+
+          <p>
+            Ended: {log.endedAt || "Still Fronting"}
+          </p>
+
+          {!log.endedAt && (
+            <button
+              onClick={() =>
+                stopFront(log.id)
+              }
+            >
+              Stop Fronting
+            </button>
+          )}
+        </div>
+      ))}
+
+      <h2 style={{ marginTop: "2rem" }}>
+        Internal Chat
+      </h2>
+
+      <input
+        value={message}
+        onChange={(e) =>
+          setMessage(e.target.value)
+        }
+        placeholder="Message..."
+      />
+
+      <button onClick={sendMessage}>
+        Send
+      </button>
+
+      <div
+        style={{
+          marginTop: "1rem",
+        }}
+      >
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            style={{
+              background: "#1e293b",
+              padding: "1rem",
+              marginBottom: ".5rem",
+              borderRadius: "12px",
+            }}
+          >
+            <p>{msg.text}</p>
+            <small>{msg.createdAt}</small>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
